@@ -1,13 +1,20 @@
 import express from 'express';
-import cors from 'cors'; // ← CORSを追加
 const app = express();
 
-// ★ここが重要！ shirothread.net からのアクセスを許可します
-app.use(cors({
-  origin: 'https://shirothread.net' 
-}));
-
 app.use(express.json());
+
+// 🛡️ CORSエラーを力技で解決する設定
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://shirothread.net'); // あなたのサイトを許可
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // プリフライト（事前確認）リクエストへの対応
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 let totalRequestsToday = 0;
 let lastResetDate = new Date().getDate();
@@ -19,9 +26,9 @@ app.post('/api/chat', async (req: any, res: any) => {
         lastResetDate = today;
     }
 
-    // 🚨 500回を超えたら強制停止（お財布防衛）
+    // 🚨 1日500回制限（お財布防衛）
     if (totalRequestsToday > 500) {
-        return res.status(503).json({ error: "今日はお小遣い切れ！また明日ね。" });
+        return res.status(503).json({ error: "今日のお小遣い切れ！また明日ね。" });
     }
 
     const { message } = req.body;
@@ -44,7 +51,7 @@ app.post('/api/chat', async (req: any, res: any) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('防衛システム稼働中！shirothread.net からの通信を許可しています。');
+  res.send('防衛システム稼働中！shirothread.net を許可しました！');
 });
 
 export default app;
