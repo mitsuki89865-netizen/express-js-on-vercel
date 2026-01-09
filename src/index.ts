@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors'; // ← CORSを追加
 const app = express();
 
-// ★ここが超重要！ shirothread.net からのアクセスを許可します
+// ★ここが重要！ shirothread.net からのアクセスを許可します
 app.use(cors({
   origin: 'https://shirothread.net' 
 }));
@@ -19,6 +19,7 @@ app.post('/api/chat', async (req: any, res: any) => {
         lastResetDate = today;
     }
 
+    // 🚨 500回を超えたら強制停止（お財布防衛）
     if (totalRequestsToday > 500) {
         return res.status(503).json({ error: "今日はお小遣い切れ！また明日ね。" });
     }
