@@ -1,6 +1,5 @@
 import express from 'express';
 const app = express();
-
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -11,31 +10,24 @@ app.use((req, res, next) => {
   next();
 });
 
-let totalRequestsToday = 0;
-let lastResetDate = new Date().getDate();
-
 app.post('/api/chat', async (req: any, res: any) => {
-    const today = new Date().getDate();
-    if (today !== lastResetDate) {
-        totalRequestsToday = 0;
-        lastResetDate = today;
-    }
-
-    if (totalRequestsToday > 500) {
-        return res.status(503).json({ error: "今日はお小遣い切れだよ！" });
-    }
-
     const { message } = req.body;
-    const API_KEY = process.env.GEMINI_API_KEY; // Vercelの環境変数から取得
+    
+    // 🔍 診断1: Vercelがキーを認識しているかチェック
+    const API_KEY = process.env.GEMINI_API_KEY;
+    
+    if (!API_KEY || API_KEY.trim() === "") {
+        return res.status(500).json({ 
+            error: "Vercelの金庫に鍵（APIキー）が入っていません。Environment Variablesを再確認してください。" 
+        });
+    }
 
     try {
-        totalRequestsToday++;
-        // 🚀 あなたが教えてくれた curl の形式に合わせました
         const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'X-goog-api-key': API_KEY as string // ヘッダーでキーを送る形式
+                'X-goog-api-key': API_KEY
             },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: message }] }]
@@ -47,11 +39,10 @@ app.post('/api/chat', async (req: any, res: any) => {
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
             res.json({ text: data.candidates[0].content.parts[0].text });
         } else {
-            res.status(500).json({ error: "AIが空っぽの返事をしました", detail: data });
+            res.status(500).json({ error: "Geminiに届きましたが拒否されました", detail: data });
         }
-
     } catch (e) {
-        res.status(500).json({ error: "通信エラーが発生しました" });
+        res.status(500).json({ error: "VercelからGeminiへの通信中に爆発しました" });
     }
 });
 
