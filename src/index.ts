@@ -6,7 +6,7 @@ app.use(express.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-goog-api-key');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
@@ -22,17 +22,21 @@ app.post('/api/chat', async (req: any, res: any) => {
     }
 
     if (totalRequestsToday > 500) {
-        return res.status(503).json({ error: "今日のお小遣い切れ！" });
+        return res.status(503).json({ error: "今日はお小遣い切れだよ！" });
     }
 
     const { message } = req.body;
-    const API_KEY = process.env.GEMINI_API_KEY;
+    const API_KEY = process.env.GEMINI_API_KEY; // Vercelの環境変数から取得
 
     try {
         totalRequestsToday++;
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+        // 🚀 あなたが教えてくれた curl の形式に合わせました
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-goog-api-key': API_KEY as string // ヘッダーでキーを送る形式
+            },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: message }] }]
             })
@@ -40,15 +44,10 @@ app.post('/api/chat', async (req: any, res: any) => {
 
         const data: any = await response.json();
 
-        // 🔍 Geminiからの生データをVercelのログに出力（デバッグ用）
-        console.log("Gemini Response:", JSON.stringify(data));
-
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            const aiText = data.candidates[0].content.parts[0].text;
-            res.json({ text: aiText });
+            res.json({ text: data.candidates[0].content.parts[0].text });
         } else {
-            // データが想定外の形なら、そのままエラーとして返す
-            res.status(500).json({ error: "Geminiのデータが空でした", raw: data });
+            res.status(500).json({ error: "AIが空っぽの返事をしました", detail: data });
         }
 
     } catch (e) {
