@@ -3,16 +3,12 @@ const app = express();
 
 app.use(express.json());
 
-// 🛡️ CORSエラーを力技で解決する設定
+// 🛡️ 全許可設定（どこからでもアクセスOK！）
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*'); // あなたのサイトを許可
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
-  
-  // プリフライト（事前確認）リクエストへの対応
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 
@@ -28,7 +24,7 @@ app.post('/api/chat', async (req: any, res: any) => {
 
     // 🚨 1日500回制限（お財布防衛）
     if (totalRequestsToday > 500) {
-        return res.status(503).json({ error: "今日のお小遣い切れ！また明日ね。" });
+        return res.status(503).json({ error: "今日はお小遣い切れ！また明日ね。" });
     }
 
     const { message } = req.body;
@@ -43,15 +39,26 @@ app.post('/api/chat', async (req: any, res: any) => {
                 contents: [{ parts: [{ text: message }] }]
             })
         });
-        const data = await response.json();
-        res.json(data);
+
+        const data: any = await response.json();
+
+        // --- 🚨 ここが重要！Geminiの複雑なデータからテキストだけを抜き出す ---
+        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+            const aiText = data.candidates[0].content.parts[0].text;
+            res.json({ text: aiText }); // HTMLが読みやすい形に変換して送る
+        } else {
+            // エラーが起きた場合はそのままエラーを返す
+            console.error("Gemini Error:", data);
+            res.status(500).json({ error: "Gemini君が返事をしてくれません…", detail: data });
+        }
+
     } catch (e) {
-        res.status(500).json({ error: "サーバーがちょっと休憩中..." });
+        res.status(500).json({ error: "サーバーでエラーが発生しました" });
     }
 });
 
 app.get('/', (req, res) => {
-  res.send('防衛システム稼働中！shirothread.net を許可しました！');
+  res.send('防衛システム稼働中！全オリジンを許可しました。');
 });
 
 export default app;
