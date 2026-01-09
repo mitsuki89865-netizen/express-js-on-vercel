@@ -1,5 +1,12 @@
 import express from 'express';
+import cors from 'cors'; // ← CORSを追加
 const app = express();
+
+// ★ここが超重要！ shirothread.net からのアクセスを許可します
+app.use(cors({
+  origin: 'https://shirothread.net' 
+}));
+
 app.use(express.json());
 
 let totalRequestsToday = 0;
@@ -36,7 +43,7 @@ app.post('/api/chat', async (req: any, res: any) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('防衛システム稼働中！あとはHTMLから呼ぶだけ！');
+  res.send('防衛システム稼働中！shirothread.net からの通信を許可しています。');
 });
 
 export default app;
