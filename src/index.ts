@@ -3,7 +3,6 @@ const app = express();
 
 app.use(express.json());
 
-// 🛡️ 全許可設定（どこからでもアクセスOK！）
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -22,9 +21,8 @@ app.post('/api/chat', async (req: any, res: any) => {
         lastResetDate = today;
     }
 
-    // 🚨 1日500回制限（お財布防衛）
     if (totalRequestsToday > 500) {
-        return res.status(503).json({ error: "今日はお小遣い切れ！また明日ね。" });
+        return res.status(503).json({ error: "今日のお小遣い切れ！" });
     }
 
     const { message } = req.body;
@@ -42,23 +40,20 @@ app.post('/api/chat', async (req: any, res: any) => {
 
         const data: any = await response.json();
 
-        // --- 🚨 ここが重要！Geminiの複雑なデータからテキストだけを抜き出す ---
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        // 🔍 Geminiからの生データをVercelのログに出力（デバッグ用）
+        console.log("Gemini Response:", JSON.stringify(data));
+
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
             const aiText = data.candidates[0].content.parts[0].text;
-            res.json({ text: aiText }); // HTMLが読みやすい形に変換して送る
+            res.json({ text: aiText });
         } else {
-            // エラーが起きた場合はそのままエラーを返す
-            console.error("Gemini Error:", data);
-            res.status(500).json({ error: "Gemini君が返事をしてくれません…", detail: data });
+            // データが想定外の形なら、そのままエラーとして返す
+            res.status(500).json({ error: "Geminiのデータが空でした", raw: data });
         }
 
     } catch (e) {
-        res.status(500).json({ error: "サーバーでエラーが発生しました" });
+        res.status(500).json({ error: "通信エラーが発生しました" });
     }
-});
-
-app.get('/', (req, res) => {
-  res.send('防衛システム稼働中！全オリジンを許可しました。');
 });
 
 export default app;
