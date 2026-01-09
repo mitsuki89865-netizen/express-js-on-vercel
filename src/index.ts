@@ -5,7 +5,7 @@ app.use(express.json());
 
 // 🛡️ CORSエラーを力技で解決する設定
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://shirothread.net/testShiroAI/'); // あなたのサイトを許可
+  res.header('Access-Control-Allow-Origin', '*'); // あなたのサイトを許可
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   
