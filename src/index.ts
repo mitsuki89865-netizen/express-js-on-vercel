@@ -1,52 +1,47 @@
-import express from 'express'
-import path from 'path'
-import { fileURLToPath } from 'url'
+const express = require('express');
+const app = express();
+app.use(express.json());
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+// --- 💰 お財布防衛システム ---
+let totalRequestsToday = 0; // 今日使った回数
+let lastResetDate = new Date().getDate();
 
-const app = express()
+app.post('/api/chat', async (req, res) => {
+    // 日付が変わったらカウンターを 0 にリセット
+    const today = new Date().getDate();
+    if (today !== lastResetDate) {
+        totalRequestsToday = 0;
+        lastResetDate = today;
+    }
 
-// Home route - HTML
+    // 🚨 【ストッパー】1日の合計が 500回 を超えたら強制停止
+    // Gemini Flashモデルなら500回使ってもほぼ無料枠内ですが、
+    // ここで止めておけば、絶対に予算を超えません。
+    if (totalRequestsToday > 500) {
+        return res.status(503).json({ error: "今日のお小遣いを使い切っちゃった。また明日話そうね！" });
+    }
+
+    const { message } = req.body;
+    const API_KEY = process.env.GEMINI_API_KEY;
+
+    try {
+        totalRequestsToday++; // カウントアップ
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: message }] }]
+            })
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: "サーバーがちょっと休憩中..." });
+    }
+});
+
 app.get('/', (req, res) => {
-  res.type('html').send(`
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8"/>
-        <title>Express on Vercel</title>
-        <link rel="stylesheet" href="/style.css" />
-      </head>
-      <body>
-        <nav>
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/api-data">API Data</a>
-          <a href="/healthz">Health</a>
-        </nav>
-        <h1>Welcome to Express on Vercel 🚀</h1>
-        <p>This is a minimal example without a database or forms.</p>
-        <img src="/logo.png" alt="Logo" width="120" />
-      </body>
-    </html>
-  `)
-})
+  res.send('防衛システム稼働中！安心してね。');
+});
 
-app.get('/about', function (req, res) {
-  res.sendFile(path.join(__dirname, '..', 'components', 'about.htm'))
-})
-
-// Example API endpoint - JSON
-app.get('/api-data', (req, res) => {
-  res.json({
-    message: 'Here is some sample API data',
-    items: ['apple', 'banana', 'cherry'],
-  })
-})
-
-// Health check
-app.get('/healthz', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
-})
-
-export default app
+module.exports = app;
